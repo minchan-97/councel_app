@@ -286,7 +286,7 @@ function snack(msg) {
 async function api(path, body) {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "연결이 잠깐 끊겼어요. 다시 보내 주세요.");
+  if (!res.ok) throw new Error(data.error || `연결 문제가 생겼어요 (${res.status}). 다시 보내 주세요.`);
   return data;
 }
 
