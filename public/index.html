@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#4F5FA8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C2030" media="(prefers-color-scheme: dark)">
+<title>포근이</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #EEF2F7;
+  --surface: #FFFFFF;
+  --surface-2: #E3E8F2;
+  --line: #CDD4E4;
+  --ink: #1F2438;
+  --ink-2: #5A6180;
+  --primary: #4F5FA8;
+  --on-primary: #FFFFFF;
+  --mine: #DCE1FA;
+  --on-mine: #1C2554;
+  --blush: #F6C2A6;
+  --alert-bg: #FFF1E6;
+  --alert-ink: #6B3410;
+  --alert-line: #F2B880;
+  --scrim: rgba(20, 24, 40, .42);
+  --font: "Gowun Dodum", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #13161F;
+    --surface: #1C2030;
+    --surface-2: #262B3E;
+    --line: #353C55;
+    --ink: #E6E8F2;
+    --ink-2: #A2A8C3;
+    --primary: #B8C3FF;
+    --on-primary: #1A2357;
+    --mine: #333D6B;
+    --on-mine: #E2E6FF;
+    --alert-bg: #3A2A1E;
+    --alert-ink: #FFD9BD;
+    --alert-line: #8A5A33;
+    --scrim: rgba(0, 0, 0, .55);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font);
+  font-size: 17px; line-height: 1.55; -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+button, input, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+.screen {
+  height: 100%; display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  max-width: 640px; margin: 0 auto;
+}
+
+/* ── 입장 화면 ── */
+#entry { justify-content: center; padding-left: 28px; padding-right: 28px; gap: 8px; }
+#entry .hero { width: min(64vw, 260px); align-self: center; margin-bottom: 8px; animation: breathe 4.5s ease-in-out infinite; }
+#entry h1 { font-size: 30px; line-height: 1.25; margin: 0; letter-spacing: -0.01em; }
+#entry p { margin: 0 0 20px; color: var(--ink-2); }
+.field label { display: block; font-size: 14px; color: var(--ink-2); margin: 0 0 6px 4px; }
+.field input {
+  width: 100%; height: 56px; padding: 0 18px; border-radius: 16px;
+  border: 2px solid var(--line); background: var(--surface); font-size: 20px; letter-spacing: .04em;
+}
+.field input:focus { border-color: var(--primary); outline: none; }
+.btn {
+  height: 56px; border: 0; border-radius: 28px; padding: 0 28px; cursor: pointer;
+  background: var(--primary); color: var(--on-primary); font-size: 18px; margin-top: 14px; width: 100%;
+}
+.btn:disabled { opacity: .5; }
+.fine { font-size: 13.5px; color: var(--ink-2); margin-top: 18px; line-height: 1.5; }
+
+/* ── 채팅 화면 ── */
+.appbar {
+  display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 8px 0 16px; flex: none;
+}
+.appbar .who { flex: 1; min-width: 0; }
+.appbar .name { font-size: 20px; line-height: 1.2; }
+.appbar .tone { font-size: 13px; color: var(--ink-2); }
+.icon-btn {
+  width: 48px; height: 48px; border-radius: 24px; border: 0; background: transparent;
+  display: grid; place-items: center; cursor: pointer;
+}
+.icon-btn:active { background: var(--surface-2); }
+.icon-btn svg { width: 24px; height: 24px; fill: var(--ink); }
+
+/* 캐릭터 무대: 이 앱에서 유일하게 큰 요소 */
+.stage {
+  flex: none; height: 30vh; max-height: 240px; min-height: 140px;
+  display: grid; place-items: center; position: relative;
+  transition: height .28s ease, min-height .28s ease;
+}
+.stage::after { /* 바닥 그림자 */
+  content: ""; position: absolute; bottom: 10px; width: 120px; height: 12px; border-radius: 50%;
+  background: var(--line); opacity: .55; filter: blur(2px);
+  transition: opacity .28s;
+}
+.stage img { height: 86%; max-width: 80%; animation: breathe 4.5s ease-in-out infinite; position: relative; z-index: 1; }
+.stage img.swap { animation: squish .38s ease; }
+body.typing-mode .stage { height: 84px; min-height: 84px; }
+body.typing-mode .stage::after { opacity: 0; }
+@keyframes breathe { 0%,100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-4px) scale(1.015, .99); } }
+@keyframes squish { 0% { transform: scale(1); } 40% { transform: scale(1.08, .9); } 100% { transform: scale(1); } }
+
+#log {
+  flex: 1; overflow-y: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px;
+  scroll-behavior: smooth;
+}
+.msg { max-width: 82%; padding: 11px 16px; border-radius: 22px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.msg.bot { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; box-shadow: 0 1px 0 var(--line); }
+.msg.me  { align-self: flex-end; background: var(--mine); color: var(--on-mine); border-bottom-right-radius: 6px; }
+.msg.help { background: var(--alert-bg); color: var(--alert-ink); border: 1.5px solid var(--alert-line); max-width: 92%; }
+.msg.help a { color: inherit; font-weight: 700; }
+.msg.err { align-self: center; background: transparent; color: var(--ink-2); font-size: 14px; padding: 4px 8px; }
+.day { align-self: center; font-size: 13px; color: var(--ink-2); padding: 6px 0; }
+.dots { display: inline-flex; gap: 5px; padding: 4px 0; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-2); opacity: .4; animation: dot 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+
+.composer {
+  flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 8px 12px 12px;
+}
+.composer textarea {
+  flex: 1; resize: none; border: 0; border-radius: 26px; background: var(--surface);
+  padding: 13px 20px; min-height: 52px; max-height: 140px; line-height: 1.45; box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.composer textarea:focus { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.fab {
+  width: 52px; height: 52px; flex: none; border-radius: 18px; border: 0; cursor: pointer;
+  background: var(--primary); display: grid; place-items: center;
+}
+.fab svg { width: 24px; height: 24px; fill: var(--on-primary); }
+.fab:disabled { opacity: .45; }
+
+/* ── 설정 바텀시트 ── */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; opacity: 0; transition: opacity .2s; }
+.scrim.open { opacity: 1; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 640px; margin: 0 auto;
+  background: var(--surface); border-radius: 28px 28px 0 0; max-height: 86vh; overflow-y: auto;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%); transition: transform .26s cubic-bezier(.2, .8, .2, 1);
+}
+.sheet.open { transform: none; }
+.handle { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 14px; }
+.sheet h2 { font-size: 20px; margin: 4px 4px 12px; font-weight: 400; }
+.sheet h3 { font-size: 15px; color: var(--ink-2); margin: 22px 4px 8px; font-weight: 400; }
+.tones { display: grid; gap: 8px; }
+.tone-opt {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px;
+  border: 1.5px solid var(--line); cursor: pointer; background: var(--surface);
+}
+.tone-opt input { accent-color: var(--primary); width: 20px; height: 20px; margin: 0; }
+.tone-opt:has(input:checked) { border-color: var(--primary); background: var(--mine); color: var(--on-mine); }
+.tone-opt small { display: block; font-size: 13px; color: inherit; opacity: .75; }
+.help-list { display: grid; gap: 8px; }
+.help-list a {
+  display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: 18px;
+  background: var(--surface-2); color: var(--ink); text-decoration: none;
+}
+.help-list a b { font-size: 18px; }
+.text-btn {
+  width: 100%; text-align: left; padding: 14px 16px; border: 0; background: transparent; border-radius: 14px;
+  cursor: pointer; color: var(--ink);
+}
+.text-btn:active { background: var(--surface-2); }
+.text-btn.danger { color: #C2410C; }
+@media (prefers-color-scheme: dark) { .text-btn.danger { color: #FDBA74; } }
+
+.snackbar {
+  position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 30;
+  max-width: 560px; margin: 0 auto; background: var(--ink); color: var(--bg); padding: 14px 18px; border-radius: 12px;
+  transform: translateY(20px); opacity: 0; pointer-events: none; transition: .2s;
+}
+.snackbar.show { transform: none; opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- 입장 -->
+<section id="entry" class="screen" hidden>
+  <img class="hero" src="/expressions/happy.svg" alt="">
+  <h1>포근이와<br>이야기해요</h1>
+  <p>선생님께 받은 코드를 넣어 주세요.</p>
+  <form id="entryForm" class="field" novalidate>
+    <label for="code">입장 코드</label>
+    <input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="text" maxlength="20" required>
+    <button class="btn" id="enterBtn" type="submit">입장하기</button>
+  </form>
+  <p class="fine">포근이는 학교에서 만든 AI예요. 사람이 아니에요.<br>나눈 이야기는 선생님이 볼 수 있어요. 위험한 이야기가 나오면 선생님께 알림이 가요.</p>
+</section>
+
+<!-- 채팅 -->
+<section id="chat" class="screen" hidden>
+  <header class="appbar">
+    <div class="who">
+      <div class="name" id="charName">포근이</div>
+      <div class="tone" id="toneLabel"></div>
+    </div>
+    <button class="icon-btn" id="openSettings" aria-label="설정 열기">
+      <svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4L10.6 6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+    </button>
+  </header>
+  <div class="stage"><img id="face" src="/expressions/neutral.svg" alt="포근이 표정: 기본"></div>
+  <main id="log" role="log" aria-live="polite"></main>
+  <form class="composer" id="composer">
+    <textarea id="input" rows="1" placeholder="하고 싶은 말을 써 봐" aria-label="메시지" maxlength="500"></textarea>
+    <button class="fab" id="sendBtn" type="submit" aria-label="보내기" disabled>
+      <svg viewBox="0 0 24 24"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+    </button>
+  </form>
+</section>
+
+<!-- 설정 -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="handle"></div>
+  <h2 id="sheetTitle">설정</h2>
+  <h3>포근이 말투</h3>
+  <div class="tones" id="tones"></div>
+  <h3>도움이 필요할 때</h3>
+  <div class="help-list">
+    <a href="tel:1388"><span>청소년 상담</span><b>1388</b></a>
+    <a href="tel:109"><span>자살예방 상담</span><b>109</b></a>
+    <a href="tel:112"><span>위험할 때</span><b>112</b></a>
+  </div>
+  <h3>기타</h3>
+  <button class="text-btn" id="clearBtn">이 폰에서 대화 지우기</button>
+  <button class="text-btn danger" id="logoutBtn">나가기 (다른 코드로 입장)</button>
+  <p class="fine">포근이는 학교에서 만든 AI예요. 나눈 이야기는 선생님이 볼 수 있어요.</p>
+</div>
+
+<div class="snackbar" id="snack" role="status"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const TONE_HINT = { teacher: "차분하고 다정하게", friend: "편한 반말로", parent: "따뜻하게 품어 주듯" };
+const EMO_LABEL = { neutral: "기본", happy: "기쁨", concern: "걱정", surprised: "놀람", thinking: "생각 중", cheer: "응원", calm: "차분함" };
+const HISTORY_MAX = 60;
+
+// 저장소: 실패해도 앱은 동작
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+const state = {
+  code: store.get("code", null),
+  tone: store.get("tone", null),
+  tones: [],
+  history: store.get("history", []),
+  busy: false,
+};
+
+// ── 화면 전환
+function show(id) { $("#entry").hidden = id !== "entry"; $("#chat").hidden = id !== "chat"; }
+
+function snack(msg) {
+  const el = $("#snack"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(snack.t); snack.t = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "연결이 잠깐 끊겼어요. 다시 보내 주세요.");
+  return data;
+}
+
+// ── 입장
+async function enter(code) {
+  const s = await api("/api/session", { code });
+  state.code = code; store.set("code", code);
+  state.tones = s.tones;
+  if (!s.tones.find((t) => t.id === state.tone)) state.tone = s.defaultTone;
+  store.set("tone", state.tone);
+  $("#charName").textContent = s.character.name;
+  if (s.demo) snack("데모 모드예요. 대화가 저장되지 않아요.");
+  renderTones(); renderToneLabel(); renderLog(); show("chat");
+  if (!state.history.length) greet(s.name, s.character.name);
+}
+
+function greet(name, charName) {
+  const text = `${name ? name + ", " : ""}안녕! 나는 ${charName}야. 오늘 어떤 하루였는지 들려줄래?`;
+  push({ role: "assistant", content: text, emotion: "happy" });
+  setFace("happy");
+}
+
+$("#entryForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = $("#code").value.trim();
+  if (!code) return snack("코드를 넣어 주세요.");
+  $("#enterBtn").disabled = true;
+  try { await enter(code); } catch (err) { snack(err.message); }
+  finally { $("#enterBtn").disabled = false; }
+});
+
+// ── 대화 기록
+function push(m) {
+  m.at = Date.now();
+  state.history.push(m);
+  if (state.history.length > HISTORY_MAX) state.history = state.history.slice(-HISTORY_MAX);
+  store.set("history", state.history);
+  appendBubble(m);
+}
+
+function linkPhones(text) {
+  const esc = text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return esc.replace(/\b(1388|109|112|119)\b/g, '<a href="tel:$1">$1</a>');
+}
+
+function appendBubble(m) {
+  const el = document.createElement("div");
+  el.className = "msg " + (m.role === "user" ? "me" : "bot") + (m.crisis ? " help" : "");
+  if (m.crisis) el.innerHTML = linkPhones(m.content); else el.textContent = m.content;
+  $("#log").appendChild(el);
+  $("#log").scrollTop = $("#log").scrollHeight;
+  return el;
+}
+
+function renderLog() {
+  $("#log").innerHTML = "";
+  if (state.history.length) {
+    const d = new Date(state.history[0].at || Date.now());
+    const day = document.createElement("div"); day.className = "day";
+    day.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일부터의 이야기`;
+    $("#log").appendChild(day);
+  }
+  state.history.forEach(appendBubble);
+  const last = [...state.history].reverse().find((m) => m.emotion);
+  setFace(last?.emotion || "neutral", false);
+}
+
+// ── 표정
+function setFace(emotion, animate = true) {
+  const img = $("#face");
+  const next = `/expressions/${emotion}.svg`;
+  img.alt = `포근이 표정: ${EMO_LABEL[emotion] || "기본"}`;
+  if (img.getAttribute("src") === next) return;
+  img.src = next;
+  if (animate) { img.classList.remove("swap"); void img.offsetWidth; img.classList.add("swap"); }
+}
+
+// ── 보내기
+const input = $("#input");
+input.addEventListener("input", () => {
+  input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px";
+  $("#sendBtn").disabled = !input.value.trim() || state.busy;
+});
+input.addEventListener("focus", () => document.body.classList.add("typing-mode"));
+input.addEventListener("blur", () => setTimeout(() => document.body.classList.remove("typing-mode"), 120));
+
+$("#composer").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || state.busy) return;
+  const history = state.history.slice(-12).map(({ role, content }) => ({ role, content }));
+  push({ role: "user", content: text });
+  input.value = ""; input.style.height = "auto";
+  state.busy = true; $("#sendBtn").disabled = true;
+  setFace("thinking");
+
+  const wait = document.createElement("div");
+  wait.className = "msg bot"; wait.innerHTML = '<span class="dots" aria-label="포근이가 생각하고 있어요"><i></i><i></i><i></i></span>';
+  $("#log").appendChild(wait); $("#log").scrollTop = $("#log").scrollHeight;
+
+  try {
+    const r = await api("/api/chat", { code: state.code, tone: state.tone, message: text, history });
+    wait.remove();
+    push({ role: "assistant", content: r.text, emotion: r.emotion, crisis: r.crisis });
+    setFace(r.emotion);
+  } catch (err) {
+    wait.remove();
+    const el = document.createElement("div"); el.className = "msg err"; el.textContent = err.message;
+    $("#log").appendChild(el);
+    setFace("neutral");
+  } finally {
+    state.busy = false; $("#sendBtn").disabled = !input.value.trim();
+  }
+});
+
+// ── 설정 시트 (안드로이드 뒤로가기로 닫힘)
+function renderToneLabel() {
+  const t = state.tones.find((x) => x.id === state.tone);
+  $("#toneLabel").textContent = t ? `${t.label} 말투` : "";
+}
+function renderTones() {
+  $("#tones").innerHTML = "";
+  state.tones.forEach((t) => {
+    const l = document.createElement("label"); l.className = "tone-opt";
+    l.innerHTML = `<input type="radio" name="tone" value="${t.id}"><span>${t.label}<small>${TONE_HINT[t.id] || ""}</small></span>`;
+    const r = l.querySelector("input"); r.checked = t.id === state.tone;
+    r.addEventListener("change", () => {
+      state.tone = t.id; store.set("tone", t.id); renderToneLabel();
+      snack(`이제 ${t.label} 말투로 이야기할게요.`);
+    });
+    $("#tones").appendChild(l);
+  });
+}
+
+function openSheet() {
+  $("#scrim").hidden = false; $("#sheet").hidden = false;
+  requestAnimationFrame(() => { $("#scrim").classList.add("open"); $("#sheet").classList.add("open"); });
+  history.pushState({ sheet: true }, "");
+}
+function closeSheet(fromPop = false) {
+  if ($("#sheet").hidden) return;
+  $("#scrim").classList.remove("open"); $("#sheet").classList.remove("open");
+  setTimeout(() => { $("#scrim").hidden = true; $("#sheet").hidden = true; }, 260);
+  if (!fromPop && history.state?.sheet) history.back();
+}
+$("#openSettings").addEventListener("click", openSheet);
+$("#scrim").addEventListener("click", () => closeSheet());
+addEventListener("popstate", () => closeSheet(true));
+
+$("#clearBtn").addEventListener("click", () => {
+  if (!confirm("이 폰에 보이는 대화를 지울까요?")) return;
+  state.history = []; store.del("history"); renderLog(); closeSheet(); snack("대화를 지웠어요.");
+});
+$("#logoutBtn").addEventListener("click", () => {
+  if (!confirm("나가면 이 폰의 대화도 지워져요. 나갈까요?")) return;
+  ["code", "tone", "history"].forEach(store.del);
+  Object.assign(state, { code: null, tone: null, history: [], tones: [] });
+  closeSheet(); $("#code").value = ""; show("entry");
+});
+
+// ── 시작
+(async () => {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if (state.code) {
+    try { await enter(state.code); return; } catch (err) { snack(err.message); }
+  }
+  show("entry");
+})();
+</script>
+</body>
+</html>
