@@ -299,6 +299,13 @@ async function enter(code) {
   store.set("tone", state.tone);
   $("#charName").textContent = s.character.name;
   if (s.demo) snack("데모 모드예요. 대화가 저장되지 않아요.");
+  else {
+    // 서버 기록이 기준: 폰을 바꾸거나 앱을 다시 깔아도 대화가 이어짐
+    try {
+      const h = await api("/api/history", { code });
+      if (Array.isArray(h.messages)) { state.history = h.messages; store.set("history", state.history); }
+    } catch (err) { snack("지난 대화를 불러오지 못했어요. 이 폰에 있는 대화만 보여요."); }
+  }
   renderTones(); renderToneLabel(); renderLog(); show("chat");
   if (!state.history.length) greet(s.name, s.character.name);
 }
