@@ -50,12 +50,14 @@ export default async function handler(req, res) {
     let out = parseJSON(await complete({ system, messages }));
     let violations = out?.text ? auditReply(out.text) : ["parse_failed"];
     if (violations.length) {
+      console.warn("audit:", violations, out?.text ?? "(no text)");
       await addAudit(sid, { stage: "first", violations, output: out?.text || null }).catch(() => {});
       const retrySystem =
         system + `\n\n[교정] 직전 답이 규칙을 어겼다(${violations.join(", ")}). 정체성과 규칙을 지켜 다시 답한다.`;
       out = parseJSON(await complete({ system: retrySystem, messages, temperature: 0.4 }));
       violations = out?.text ? auditReply(out.text) : ["parse_failed"];
       if (violations.length) {
+        console.warn("audit retry:", violations, out?.text ?? "(no text)");
         await addAudit(sid, { stage: "retry", violations, output: out?.text || null }).catch(() => {});
         out = { text: SAFE_FALLBACK(IDENTITY.name), emotion: "thinking", memory: [] };
       }
