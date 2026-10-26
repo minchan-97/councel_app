@@ -3,6 +3,10 @@ import { enabled, getStudent, getMemories, addMemories, logMessages, addAlert, a
 import { checkSafety } from "../lib/safety.js";
 import { buildSystem, auditReply, gateMemories, SAFE_FALLBACK } from "../lib/companion.js";
 import { complete, parseJSON } from "../lib/llm.js";
+
+// 저장 실패해도 대화는 계속하되, 실패 원인은 로그에 남긴다
+const reportSave = (results) =>
+  results.forEach((r) => r.status === "rejected" && console.error("save failed:", r.reason?.message || r.reason));
 import { IDENTITY, TONES, CRISIS_RESPONSES, EMOTIONS, CRISIS_EMOTION } from "../lib/config.js";
 
 const MAX_LEN = 500;
@@ -30,13 +34,13 @@ export default async function handler(req, res) {
     const safety = await checkSafety(text, recent);
     if (safety.level === "crisis") {
       const reply = CRISIS_RESPONSES[safety.type] || CRISIS_RESPONSES.general;
-      await Promise.allSettled([
+      reportSave(await Promise.allSettled([
         addAlert(sid, { level: "crisis", type: safety.type, message: text, detected_by: safety.by }),
         logMessages(sid, [
           { role: "user", content: text, tone: useTone },
           { role: "assistant", content: reply, tone: useTone, emotion: CRISIS_EMOTION, flagged: true },
         ]),
-      ]);
+      ]));
       return res.json({ text: reply, emotion: CRISIS_EMOTION, crisis: true });
     }
     const concern = safety.level === "concern";
@@ -69,14 +73,14 @@ export default async function handler(req, res) {
     const newMem = concern ? [] : gateMemories(out.memory, text, memories);
 
     // 5) 기록 (실패해도 대화는 계속)
-    await Promise.allSettled([
+    reportSave(await Promise.allSettled([
       addMemories(sid, newMem),
       logMessages(sid, [
         { role: "user", content: text, tone: useTone, flagged: concern },
         { role: "assistant", content: reply, tone: useTone, emotion },
       ]),
       concern ? addAlert(sid, { level: "concern", type: safety.type || "general", message: text, detected_by: safety.by }) : null,
-    ]);
+    ]));
 
     res.json({ text: reply, emotion, crisis: false });
   } catch (e) {
