@@ -1,7 +1,7 @@
 // 앱 껍데기(화면, 아이콘, 표정)만 캐시. 대화(/api)는 절대 캐시하지 않는다.
-const CACHE = "pogeuni-v4";
+const CACHE = "pogeuni-v6";
 const SHELL = [
-  "/", "/index.html", "/manifest.json", "/character.js",
+  "/", "/index.html", "/manifest.json", "/character.js", "/voicefx.js",
   "/icons/icon-192.png", "/icons/icon-512.png",
   ...["neutral","happy","concern","surprised","thinking","cheer","calm"].map((e) => `/expressions/${e}.svg`),
 ];
