@@ -1,6 +1,6 @@
 // 학생 코드로 입장. 교사가 Supabase students 테이블에 미리 등록한 코드만 허용.
 import { getStudent, enabled } from "../lib/db.js";
-import { IDENTITY, TONES, DEFAULT_TONE, PERSONALITIES, DEFAULT_PERSONALITY } from "../lib/config.js";
+import { IDENTITY, TONES, DEFAULT_TONE, PERSONALITIES, DEFAULT_PERSONALITY, TTS, TTS_VOICES, TTS_STYLES } from "../lib/config.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
@@ -23,6 +23,12 @@ export default async function handler(req, res) {
       name: s.display_name || null,
       character: { name: IDENTITY.name, personality: DEFAULT_PERSONALITY },
       personalities: Object.entries(PERSONALITIES).map(([id, p]) => ({ id, label: p.label })),
+      tts: {
+        available: Boolean(process.env.OPENAI_API_KEY),
+        dailyLimit: TTS.dailyLimit,
+        voices: Object.entries(TTS_VOICES).map(([id, label]) => ({ id, label })),
+        styles: Object.entries(TTS_STYLES).map(([id, s]) => ({ id, label: s.label })),
+      },
       tones: allowed.map((id) => ({ id, label: TONES[id].label, hint: TONES[id].hint })),
       defaultTone: allowed.includes(DEFAULT_TONE) ? DEFAULT_TONE : allowed[0],
     });
