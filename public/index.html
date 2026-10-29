@@ -331,6 +331,15 @@ body.typing-mode .stage::after { opacity: 0; }
   <h3>말투</h3>
   <div class="tones" id="tones"></div>
   <h3>목소리</h3>
+  <div class="chips" id="engineGrid" style="margin-bottom:10px"></div>
+  <div id="aiVoiceBox" hidden>
+    <div class="fine" style="margin:0 4px 8px">목소리 고르기</div>
+    <div class="chips" id="aiVoices"></div>
+    <div class="fine" style="margin:12px 4px 8px">말하는 느낌</div>
+    <div class="chips" id="aiStyles"></div>
+    <div class="voice-row"><button id="aiTest" style="flex:1">들어보기</button></div>
+    <p class="fine" id="aiNote" style="margin:10px 4px 0"></p>
+  </div>
   <div id="voiceBox">
     <div class="chips" id="voicePresets"></div>
     <label class="slider"><span>높이</span><input type="range" id="vPitch" min="0.5" max="2" step="0.05"></label>
@@ -339,8 +348,8 @@ body.typing-mode .stage::after { opacity: 0; }
       <select id="vVoice" aria-label="기본 목소리"></select>
       <button id="vTest">들어보기</button>
     </div>
-    <label class="switch-row"><span>답장을 소리 내어 읽기</span><input type="checkbox" id="vAuto"></label>
   </div>
+  <label class="switch-row"><span>답장을 소리 내어 읽기</span><input type="checkbox" id="vAuto"></label>
   <p class="fine" id="noVoice" hidden>이 기기에서는 소리 내어 읽기를 쓸 수 없어요.</p>
   <h3>기억</h3>
   <button class="text-btn" id="openMemory">기억하는 것 보기</button>
@@ -410,6 +419,7 @@ body.typing-mode .stage::after { opacity: 0; }
 <div class="snackbar" id="snack" role="status"></div>
 
 <script src="/character.js"></script>
+<script src="/voicefx.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const TONE_HINT = { teacher: "차분하고 다정하게", friend: "편한 반말로", parent: "따뜻하게 품어 주듯" };
@@ -431,7 +441,11 @@ const state = {
   busy: false,
   persona: store.get("persona", { name: "포근이", personality: "warm" }),
   personalities: [],
-  voice: store.get("voice", { preset: "basic", pitch: 1, rate: 1, auto: false, name: "" }),
+  voice: Object.assign(
+    { preset: "basic", pitch: 1, rate: 1, auto: false, name: "", engine: "device", aiVoice: "nova", aiStyle: "cheerful" },
+    store.get("voice", {})
+  ),
+  tts: { available: false, voices: [], styles: [], dailyLimit: 0 },
   look: Character.normalize(store.get("look", null)),
   clips: store.get("clips", {}),
   clipFx: store.get("clipFx", "orig"),
@@ -475,6 +489,8 @@ async function enter(code) {
   if (!s.tones.find((t) => t.id === state.tone)) state.tone = s.defaultTone;
   store.set("tone", state.tone);
   state.personalities = s.personalities || [];
+  state.tts = s.tts || state.tts;
+  if (!state.tts.available) state.voice.engine = "device";
   if (!state.personalities.find((p) => p.id === state.persona.personality)) state.persona.personality = s.character.personality;
   if (!NAME_RE.test(state.persona.name || "")) state.persona.name = s.character.name;
   store.set("persona", state.persona);
@@ -525,11 +541,11 @@ function appendBubble(m) {
   const el = document.createElement("div");
   el.className = "msg " + (m.role === "user" ? "me" : "bot") + (m.crisis ? " help" : "");
   if (m.crisis) el.innerHTML = linkPhones(m.content); else el.textContent = m.content;
-  if (m.role !== "user" && "speechSynthesis" in window) {
+  if (m.role !== "user") {
     const b = document.createElement("button");
     b.className = "say"; b.setAttribute("aria-label", "소리 내어 듣기");
     b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
-    b.addEventListener("click", () => speak(m.content));
+    b.addEventListener("click", () => speak(m.content, { calm: m.crisis || m.emotion === "concern" || m.emotion === "calm" }));
     el.appendChild(b);
   }
   $("#log").appendChild(el);
@@ -690,11 +706,42 @@ function cleanForSpeech(t) {
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
     .replace(/\n+/g, ". ").replace(/\s+/g, " ").trim();
 }
-function speak(text) {
+// 말하기: AI 목소리가 켜져 있으면 서버에서 만들고, 안 되면 기기 목소리로
+let aiAudio = null;
+const aiCache = new Map();
+function stopSpeaking() {
+  if (canSpeak) speechSynthesis.cancel();
+  if (aiAudio) { aiAudio.pause(); aiAudio = null; }
+}
+async function speak(text, opts = {}) {
+  stopSpeaking();
+  if (state.voice.engine === "ai" && state.tts.available) {
+    try { return await speakAI(text, opts); }
+    catch (err) { snack(err.message); }
+  }
+  speakDevice(text);
+}
+async function speakAI(text, { calm = false } = {}) {
+  const v = state.voice;
+  const key = [text, v.aiVoice, v.aiStyle, state.persona.personality, calm].join("|");
+  let url = aiCache.get(key);
+  if (!url) {
+    const res = await fetch("/api/tts", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: state.code, text, voice: v.aiVoice, style: v.aiStyle, personality: state.persona.personality, calm }),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "AI 목소리를 만들지 못했어요."); }
+    url = URL.createObjectURL(await res.blob());
+    aiCache.set(key, url);
+    if (aiCache.size > 30) { const [k, u] = aiCache.entries().next().value; URL.revokeObjectURL(u); aiCache.delete(k); }
+  }
+  const a = new Audio(url); aiAudio = a;
+  await new Promise((resolve) => { a.onended = a.onerror = resolve; a.play().catch(resolve); });
+}
+function speakDevice(text) {
   if (!canSpeak) return;
   const say = cleanForSpeech(text);
   if (!say) return;
-  speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(say);
   u.lang = "ko-KR";
   const vs = koVoices();
@@ -703,8 +750,37 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 function saveVoice() { store.set("voice", state.voice); }
+function chipRow(boxSel, items, isOn, onPick) {
+  const box = $(boxSel); box.innerHTML = "";
+  items.forEach((it) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = it.label; b.setAttribute("aria-pressed", String(isOn(it.id)));
+    b.addEventListener("click", () => onPick(it.id));
+    box.appendChild(b);
+  });
+}
 function renderVoice() {
-  if (!canSpeak) { $("#voiceBox").hidden = true; $("#noVoice").hidden = false; return; }
+  const ai = state.voice.engine === "ai" && state.tts.available;
+  const engines = [{ id: "device", label: "기기 목소리 (무료)" }];
+  if (state.tts.available) engines.push({ id: "ai", label: "AI 목소리" });
+  chipRow("#engineGrid", engines, (id) => id === (ai ? "ai" : "device"), (id) => {
+    state.voice.engine = id; saveVoice(); renderVoice();
+  });
+  $("#aiVoiceBox").hidden = !ai;
+  $("#voiceBox").hidden = ai || !canSpeak;
+  $("#noVoice").hidden = ai || canSpeak;
+  $("#vAuto").checked = state.voice.auto;
+  const hello = () => `안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`;
+  if (ai) {
+    chipRow("#aiVoices", state.tts.voices, (id) => id === state.voice.aiVoice, (id) => {
+      state.voice.aiVoice = id; saveVoice(); renderVoice(); speak(hello());
+    });
+    chipRow("#aiStyles", state.tts.styles, (id) => id === state.voice.aiStyle, (id) => {
+      state.voice.aiStyle = id; saveVoice(); renderVoice(); speak(hello());
+    });
+    $("#aiNote").textContent = `AI가 만든 목소리예요. 하루 ${state.tts.dailyLimit}번까지 쓸 수 있고, 다 쓰면 기기 목소리로 읽어요. 걱정되는 이야기를 할 때는 항상 차분한 목소리로 바뀌어요.`;
+  }
+  if (ai || !canSpeak) return;
   const box = $("#voicePresets"); box.innerHTML = "";
   Object.entries(VOICE_PRESETS).forEach(([id, p]) => {
     const b = document.createElement("button");
@@ -734,6 +810,7 @@ if (canSpeak) speechSynthesis.addEventListener?.("voiceschanged", () => { if (!$
 $("#vVoice").addEventListener("change", (e) => { state.voice.name = e.target.value; saveVoice(); });
 $("#vAuto").addEventListener("change", (e) => { state.voice.auto = e.target.checked; saveVoice(); });
 $("#vTest").addEventListener("click", () => speak(`안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`));
+$("#aiTest").addEventListener("click", () => speak(`안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`));
 
 // ── 꾸미기: 모습
 const STUDIO_EMOS = ["happy", "neutral", "surprised", "cheer", "thinking", "concern"];
@@ -803,30 +880,19 @@ const CLIP_SLOTS = {
   cheer: { label: "응원할 때", hint: "응원할 때 · 예: 힘내!" },
   surprised: { label: "놀랄 때", hint: "놀란 표정일 때 · 예: 헐 진짜?" },
 };
-const CLIP_FX = {
-  orig:   { label: "그대로",   rate: 1 },
-  high:   { label: "높게",     rate: 1.3 },
-  higher: { label: "아주 높게", rate: 1.6 },
-  low:    { label: "낮게",     rate: 0.8 },
-};
+const CLIP_FX = VoiceFX.EFFECTS;
 const CLIP_MAX_MS = 3000;
 const canRecord = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
 let rec = null; // { slot, recorder, stream, timer }
 
 function playClip(data) {
-  return new Promise((resolve) => {
-    const a = new Audio(data);
-    a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
-    a.playbackRate = CLIP_FX[state.clipFx]?.rate || 1;
-    a.onended = a.onerror = () => resolve();
-    a.play().catch(() => resolve());
-  });
+  return VoiceFX.play(data, state.clipFx).catch((e) => { console.warn("clip play failed", e); });
 }
 // 답이 오면: 그 감정에 녹음이 있으면 먼저 틀고, 자동 읽기가 켜져 있으면 이어서 읽는다
 async function react(emotion, text, crisis = false) {
   const clip = !crisis && state.useClips && state.clips[emotion];
   if (clip) await playClip(clip);
-  if (state.voice.auto && text) speak(text);
+  if (state.voice.auto && text) speak(text, { calm: crisis || emotion === "concern" || emotion === "calm" });
 }
 async function startRecording(slot) {
   stopRecording();
