@@ -20,6 +20,34 @@ const clean = (t, max) =>
     .trim()
     .slice(0, max);
 
+// 음성 모델 순서: 환경변수 TTS_MODEL → gpt-4o-mini-tts → tts-1
+// (대화용 모델 gpt-4o-mini와는 별개의 모델이다. 같은 키라도 프로젝트에서 허용돼 있어야 쓸 수 있다)
+function modelChain(cfg) {
+  return [...new Set([process.env.TTS_MODEL, cfg.TTS?.model || "gpt-4o-mini-tts", "tts-1"].filter(Boolean))];
+}
+// tts-1은 말투 지시(instructions)를 못 받으므로 빠르기로만 느낌을 낸다
+const TTS1_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+const TTS1_SPEED = { cheerful: 1.08, tiny: 1.12, warm: 1.0, sleepy: 0.88, cool: 0.96 };
+
+async function synth(model, { voice, input, instructions, style, calm }) {
+  const old = model === "tts-1" || model === "tts-1-hd";
+  const body = old
+    ? { model, input, voice: TTS1_VOICES.includes(voice) ? voice : "nova", response_format: "mp3",
+        speed: calm ? 0.9 : TTS1_SPEED[style] || 1 }
+    : { model, input, voice, instructions, response_format: "mp3" };
+  const r = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const err = new Error(`openai tts(${model}) ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    err.status = r.status;
+    throw err;
+  }
+  return Buffer.from(await r.arrayBuffer());
+}
+
 async function diagnose(res) {
   const out = { node: process.version, steps: {} };
   let mods;
@@ -49,13 +77,16 @@ async function diagnose(res) {
     }
   }
   if (process.env.OPENAI_API_KEY) {
-    try {
-      const r = await fetch("https://api.openai.com/v1/models/gpt-4o-mini-tts", {
-        headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      });
-      out.steps.openai_model = r.ok ? "ok" : `실패 ${r.status}: ${(await r.text()).slice(0, 200)}`;
-    } catch (e) {
-      out.steps.openai_model = `실패: ${e.message}`;
+    out.steps.openai_models = {};
+    for (const m of modelChain(cfg)) {
+      try {
+        const r = await fetch(`https://api.openai.com/v1/models/${m}`, {
+          headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        });
+        out.steps.openai_models[m] = r.ok ? "ok" : `실패 ${r.status}: ${(await r.text()).slice(0, 160)}`;
+      } catch (e) {
+        out.steps.openai_models[m] = `실패: ${e.message}`;
+      }
     }
   }
   res.status(200).json(out);
@@ -94,13 +125,19 @@ export default async function handler(req, res) {
       calm ? "" : TTS_PERSONALITY[PERSONALITIES[personality] ? personality : "warm"] || "",
     ].filter(Boolean).join(" ");
 
-    const r = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: TTS.model, voice: v, input, instructions, response_format: "mp3" }),
-    });
-    if (!r.ok) throw new Error(`openai tts ${r.status}: ${(await r.text()).slice(0, 300)}`);
-    const audio = Buffer.from(await r.arrayBuffer());
+    // 모델을 순서대로 시도: 권한 없음(403)·모델 없음(404)·잘못된 요청(400)이면 다음 모델로
+    let audio = null, lastErr = null;
+    for (const m of modelChain(cfg)) {
+      try {
+        audio = await synth(m, { voice: v, input, instructions, style, calm });
+        break;
+      } catch (e) {
+        lastErr = e;
+        console.error("tts model failed:", e.message);
+        if (![400, 403, 404].includes(e.status)) break; // 키 오류·한도 초과 등은 다른 모델도 같으니 멈춤
+      }
+    }
+    if (!audio) throw lastErr || new Error("tts failed");
 
     if (db.logTts) await db.logTts(s.id, input.length).catch((e) => console.error("tts log failed:", e.message));
     res.setHeader("content-type", "audio/mpeg");
