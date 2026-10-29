@@ -730,13 +730,28 @@ async function speakAI(text, { calm = false } = {}) {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ code: state.code, text, voice: v.aiVoice, style: v.aiStyle, personality: state.persona.personality, calm }),
     });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "AI 목소리를 만들지 못했어요."); }
-    url = URL.createObjectURL(await res.blob());
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      if (d.detail) console.warn("tts detail:", d.detail);
+      throw new Error(d.error || `AI 목소리를 만들지 못했어요 (${res.status}).`);
+    }
+    const blob = await res.blob();
+    if (!blob.size || !/audio/.test(blob.type || res.headers.get("content-type") || "")) throw new Error("AI 목소리 응답이 비어 있어요. 기기 목소리로 읽을게요.");
+    url = URL.createObjectURL(blob);
     aiCache.set(key, url);
     if (aiCache.size > 30) { const [k, u] = aiCache.entries().next().value; URL.revokeObjectURL(u); aiCache.delete(k); }
   }
   const a = new Audio(url); aiAudio = a;
-  await new Promise((resolve) => { a.onended = a.onerror = resolve; a.play().catch(resolve); });
+  // 재생이 막히면(자동재생 제한·형식 문제) 조용히 넘어가지 말고 기기 목소리로 대신 읽는다
+  await new Promise((resolve, reject) => {
+    a.onended = resolve;
+    a.onerror = () => reject(new Error("AI 목소리를 재생하지 못했어요. 기기 목소리로 읽을게요."));
+    a.play().catch((e) => reject(new Error(
+      e?.name === "NotAllowedError"
+        ? "폰이 자동 재생을 막았어요. 말풍선의 스피커를 눌러 주세요."
+        : "AI 목소리를 재생하지 못했어요. 기기 목소리로 읽을게요."
+    )));
+  });
 }
 function speakDevice(text) {
   if (!canSpeak) return;
