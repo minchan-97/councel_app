@@ -192,6 +192,34 @@ body.typing-mode .stage::after { opacity: 0; }
 }
 .snackbar.show { transform: none; opacity: 1; }
 
+/* ── 캐릭터·목소리 설정 ── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px;
+  padding: 8px 16px; cursor: pointer; font-size: 15.5px; min-height: 40px;
+}
+.chip[aria-pressed="true"] { background: var(--mine); color: var(--on-mine); border-color: var(--primary); }
+.name-row { display: flex; gap: 8px; }
+.name-row input {
+  flex: 1; min-width: 0; height: 48px; padding: 0 16px; border-radius: 14px;
+  border: 1.5px solid var(--line); background: var(--surface); font-size: 17px;
+}
+.name-row input:focus { outline: none; border-color: var(--primary); }
+.name-row button { height: 48px; border-radius: 14px; border: 0; padding: 0 16px; background: var(--primary); color: var(--on-primary); cursor: pointer; }
+.slider { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin-top: 10px; font-size: 14.5px; color: var(--ink-2); }
+.slider input { width: 100%; accent-color: var(--primary); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 4px; }
+.switch-row input { width: 22px; height: 22px; accent-color: var(--primary); }
+.voice-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+.voice-row select { flex: 1; min-width: 0; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); padding: 0 10px; }
+.voice-row button { height: 44px; border-radius: 12px; border: 1.5px solid var(--primary); background: transparent; color: var(--primary); padding: 0 14px; cursor: pointer; }
+.msg.bot .say {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; margin: -4px -8px -6px 6px; vertical-align: middle;
+  border: 0; border-radius: 15px; background: transparent; cursor: pointer; opacity: .55;
+}
+.msg.bot .say svg { width: 18px; height: 18px; fill: currentColor; }
+.msg.bot .say:active { background: var(--surface-2); }
+
 /* ── 기억 화면 ── */
 #memory { position: fixed; inset: 0; z-index: 25; background: var(--bg); max-width: none; }
 #memory .inner { max-width: 640px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: 100%; }
@@ -254,10 +282,29 @@ body.typing-mode .stage::after { opacity: 0; }
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
   <div class="handle"></div>
   <h2 id="sheetTitle">설정</h2>
-  <h3>포근이 말투</h3>
+  <h3>캐릭터 이름</h3>
+  <div class="name-row">
+    <input id="personaName" maxlength="8" autocomplete="off" aria-label="캐릭터 이름">
+    <button id="saveName">바꾸기</button>
+  </div>
+  <h3>성격</h3>
+  <div class="chips" id="personalities"></div>
+  <h3>말투</h3>
   <div class="tones" id="tones"></div>
+  <h3>목소리</h3>
+  <div id="voiceBox">
+    <div class="chips" id="voicePresets"></div>
+    <label class="slider"><span>높이</span><input type="range" id="vPitch" min="0.5" max="2" step="0.05"></label>
+    <label class="slider"><span>빠르기</span><input type="range" id="vRate" min="0.6" max="1.5" step="0.05"></label>
+    <div class="voice-row">
+      <select id="vVoice" aria-label="기본 목소리"></select>
+      <button id="vTest">들어보기</button>
+    </div>
+    <label class="switch-row"><span>답장을 소리 내어 읽기</span><input type="checkbox" id="vAuto"></label>
+  </div>
+  <p class="fine" id="noVoice" hidden>이 기기에서는 소리 내어 읽기를 쓸 수 없어요.</p>
   <h3>기억</h3>
-  <button class="text-btn" id="openMemory">포근이가 기억하는 것 보기</button>
+  <button class="text-btn" id="openMemory">기억하는 것 보기</button>
   <h3>도움이 필요할 때</h3>
   <div class="help-list">
     <a href="tel:1388"><span>청소년 상담</span><b>1388</b></a>
@@ -277,10 +324,10 @@ body.typing-mode .stage::after { opacity: 0; }
       <button class="icon-btn" id="closeMemory" aria-label="뒤로">
         <svg viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>
       </button>
-      <div class="who"><div class="name" id="memTitle">포근이가 기억하는 것</div></div>
+      <div class="who"><div class="name" id="memTitle">기억하는 것</div></div>
     </header>
     <div class="body">
-      <p class="fine" style="margin:4px 4px 0">포근이는 네가 좋아하는 것과 지난 이야기를 짧게 기억해. 지우고 싶은 건 언제든 지울 수 있어. 지운 기억은 다시 꺼내지 않아.</p>
+      <p class="fine" style="margin:4px 4px 0"><span class="cname">포근이</span>는 네가 좋아하는 것과 지난 이야기를 짧게 기억해. 지우고 싶은 건 언제든 지울 수 있어. 지운 기억은 다시 꺼내지 않아.</p>
       <h3>알고 있는 것</h3>
       <div id="memFacts"></div>
       <h3>지난 이야기</h3>
@@ -311,7 +358,23 @@ const state = {
   tones: [],
   history: store.get("history", []),
   busy: false,
+  persona: store.get("persona", { name: "포근이", personality: "warm" }),
+  personalities: [],
+  voice: store.get("voice", { preset: "basic", pitch: 1, rate: 1, auto: false, name: "" }),
 };
+const NAME_RE = /^[가-힣A-Za-z0-9 ]{1,8}$/;
+// 받침에 따라 조사 고르기: josa("콩이","이야","야") → "콩이야"
+function josa(word, withB, withoutB) {
+  const c = word.trim().slice(-1).charCodeAt(0);
+  const has = c >= 0xac00 && c <= 0xd7a3 ? (c - 0xac00) % 28 !== 0 : false;
+  return word + (has ? withB : withoutB);
+}
+function charName() { return state.persona.name || "포근이"; }
+function renderName() {
+  $("#charName").textContent = charName();
+  document.querySelectorAll(".cname").forEach((el) => (el.textContent = charName()));
+  $("#face").alt = `${charName()} 표정`;
+}
 
 // ── 화면 전환
 function show(id) { $("#entry").hidden = id !== "entry"; $("#chat").hidden = id !== "chat"; }
@@ -335,7 +398,11 @@ async function enter(code) {
   state.tones = s.tones;
   if (!s.tones.find((t) => t.id === state.tone)) state.tone = s.defaultTone;
   store.set("tone", state.tone);
-  $("#charName").textContent = s.character.name;
+  state.personalities = s.personalities || [];
+  if (!state.personalities.find((p) => p.id === state.persona.personality)) state.persona.personality = s.character.personality;
+  if (!NAME_RE.test(state.persona.name || "")) state.persona.name = s.character.name;
+  store.set("persona", state.persona);
+  renderName();
   if (s.demo) snack("데모 모드예요. 대화가 저장되지 않아요.");
   else {
     // 서버 기록이 기준: 폰을 바꾸거나 앱을 다시 깔아도 대화가 이어짐
@@ -344,14 +411,15 @@ async function enter(code) {
       if (Array.isArray(h.messages)) { state.history = h.messages; store.set("history", state.history); }
     } catch (err) { snack("지난 대화를 불러오지 못했어요. 이 폰에 있는 대화만 보여요."); }
   }
-  renderTones(); renderToneLabel(); renderLog(); show("chat");
-  if (!state.history.length) greet(s.name, s.character.name);
+  renderTones(); renderToneLabel(); renderPersona(); renderVoice(); renderLog(); show("chat");
+  if (!state.history.length) greet(s.name);
 }
 
-function greet(name, charName) {
-  const text = `${name ? name + ", " : ""}안녕! 나는 ${charName}야. 오늘 어떤 하루였는지 들려줄래?`;
+function greet(name) {
+  const text = `${name ? name + ", " : ""}안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`;
   push({ role: "assistant", content: text, emotion: "happy" });
   setFace("happy");
+  if (state.voice.auto) speak(text);
 }
 
 $("#entryForm").addEventListener("submit", async (e) => {
@@ -381,6 +449,13 @@ function appendBubble(m) {
   const el = document.createElement("div");
   el.className = "msg " + (m.role === "user" ? "me" : "bot") + (m.crisis ? " help" : "");
   if (m.crisis) el.innerHTML = linkPhones(m.content); else el.textContent = m.content;
+  if (m.role !== "user" && "speechSynthesis" in window) {
+    const b = document.createElement("button");
+    b.className = "say"; b.setAttribute("aria-label", "소리 내어 듣기");
+    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
+    b.addEventListener("click", () => speak(m.content));
+    el.appendChild(b);
+  }
   $("#log").appendChild(el);
   $("#log").scrollTop = $("#log").scrollHeight;
   return el;
@@ -433,10 +508,11 @@ $("#composer").addEventListener("submit", async (e) => {
   $("#log").appendChild(wait); $("#log").scrollTop = $("#log").scrollHeight;
 
   try {
-    const r = await api("/api/chat", { code: state.code, tone: state.tone, message: text, history });
+    const r = await api("/api/chat", { code: state.code, tone: state.tone, persona: state.persona, message: text, history });
     wait.remove();
     push({ role: "assistant", content: r.text, emotion: r.emotion, crisis: r.crisis });
     setFace(r.emotion);
+    if (state.voice.auto) speak(r.text);
   } catch (err) {
     wait.remove();
     const el = document.createElement("div"); el.className = "msg err"; el.textContent = err.message;
@@ -456,7 +532,7 @@ function renderTones() {
   $("#tones").innerHTML = "";
   state.tones.forEach((t) => {
     const l = document.createElement("label"); l.className = "tone-opt";
-    l.innerHTML = `<input type="radio" name="tone" value="${t.id}"><span>${t.label}<small>${TONE_HINT[t.id] || ""}</small></span>`;
+    l.innerHTML = `<input type="radio" name="tone" value="${t.id}"><span>${t.label}<small>${t.hint || TONE_HINT[t.id] || ""}</small></span>`;
     const r = l.querySelector("input"); r.checked = t.id === state.tone;
     r.addEventListener("change", () => {
       state.tone = t.id; store.set("tone", t.id); renderToneLabel();
@@ -491,6 +567,96 @@ $("#logoutBtn").addEventListener("click", () => {
   Object.assign(state, { code: null, tone: null, history: [], tones: [] });
   closeSheet(); $("#code").value = ""; show("entry");
 });
+
+// ── 캐릭터 이름·성격
+function renderPersona() {
+  $("#personaName").value = state.persona.name;
+  const box = $("#personalities"); box.innerHTML = "";
+  state.personalities.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = p.label;
+    b.setAttribute("aria-pressed", String(p.id === state.persona.personality));
+    b.addEventListener("click", () => {
+      state.persona.personality = p.id; store.set("persona", state.persona); renderPersona();
+      snack(`이제 ${p.label} 성격이에요.`);
+    });
+    box.appendChild(b);
+  });
+}
+function saveName() {
+  const v = $("#personaName").value.replace(/\s+/g, " ").trim();
+  if (!NAME_RE.test(v)) return snack("이름은 한글·영문·숫자로 1~8자예요.");
+  if (v === state.persona.name) return;
+  state.persona.name = v; store.set("persona", state.persona); renderName();
+  snack(`이제 ${josa(v, "이라고", "라고")} 부를게요.`);
+}
+$("#saveName").addEventListener("click", saveName);
+$("#personaName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveName(); } });
+
+// ── 목소리 (기기 내장 음성 합성: 무료, 서버로 아무것도 보내지 않음)
+const VOICE_PRESETS = {
+  basic:  { label: "기본",    pitch: 1,    rate: 1 },
+  cute:   { label: "귀엽게",  pitch: 1.55, rate: 1.08 },
+  bright: { label: "씩씩하게", pitch: 1.15, rate: 1.2 },
+  calm:   { label: "차분하게", pitch: 0.85, rate: 0.88 },
+  low:    { label: "낮게",    pitch: 0.6,  rate: 0.95 },
+};
+const canSpeak = "speechSynthesis" in window;
+function koVoices() {
+  if (!canSpeak) return [];
+  return speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
+}
+function cleanForSpeech(t) {
+  return t
+    .replace(/https?:\S+/g, "")
+    .replace(/[ㅋㅎ]{2,}/g, " ").replace(/[ㅠㅜ]{1,}/g, " ")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\n+/g, ". ").replace(/\s+/g, " ").trim();
+}
+function speak(text) {
+  if (!canSpeak) return;
+  const say = cleanForSpeech(text);
+  if (!say) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(say);
+  u.lang = "ko-KR";
+  const vs = koVoices();
+  u.voice = vs.find((v) => v.name === state.voice.name) || vs[0] || null;
+  u.pitch = state.voice.pitch; u.rate = state.voice.rate;
+  speechSynthesis.speak(u);
+}
+function saveVoice() { store.set("voice", state.voice); }
+function renderVoice() {
+  if (!canSpeak) { $("#voiceBox").hidden = true; $("#noVoice").hidden = false; return; }
+  const box = $("#voicePresets"); box.innerHTML = "";
+  Object.entries(VOICE_PRESETS).forEach(([id, p]) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = p.label;
+    b.setAttribute("aria-pressed", String(id === state.voice.preset));
+    b.addEventListener("click", () => {
+      Object.assign(state.voice, { preset: id, pitch: p.pitch, rate: p.rate }); saveVoice(); renderVoice();
+      speak(`안녕! 나는 ${josa(charName(), "이야", "야")}.`);
+    });
+    box.appendChild(b);
+  });
+  $("#vPitch").value = state.voice.pitch; $("#vRate").value = state.voice.rate; $("#vAuto").checked = state.voice.auto;
+  const sel = $("#vVoice"), vs = koVoices();
+  sel.innerHTML = vs.length ? "" : '<option value="">기본 한국어 목소리</option>';
+  vs.forEach((v, i) => {
+    const o = document.createElement("option"); o.value = v.name; o.textContent = `목소리 ${i + 1}`;
+    o.selected = v.name === state.voice.name; sel.appendChild(o);
+  });
+  sel.disabled = vs.length < 2;
+}
+if (canSpeak) speechSynthesis.addEventListener?.("voiceschanged", () => { if (!$("#chat").hidden) renderVoice(); });
+["vPitch", "vRate"].forEach((id) => $("#" + id).addEventListener("input", (e) => {
+  state.voice[id === "vPitch" ? "pitch" : "rate"] = Number(e.target.value);
+  state.voice.preset = "custom"; saveVoice();
+  document.querySelectorAll("#voicePresets .chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+}));
+$("#vVoice").addEventListener("change", (e) => { state.voice.name = e.target.value; saveVoice(); });
+$("#vAuto").addEventListener("change", (e) => { state.voice.auto = e.target.checked; saveVoice(); });
+$("#vTest").addEventListener("click", () => speak(`안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`));
 
 // ── 기억 보기
 const TRASH = '<svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>';
