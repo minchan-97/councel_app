@@ -1,6 +1,6 @@
 // 학생 코드로 입장. 교사가 Supabase students 테이블에 미리 등록한 코드만 허용.
 import { getStudent, enabled } from "../lib/db.js";
-import { IDENTITY, TONES, DEFAULT_TONE } from "../lib/config.js";
+import { IDENTITY, TONES, DEFAULT_TONE, PERSONALITIES, DEFAULT_PERSONALITY } from "../lib/config.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
@@ -15,12 +15,15 @@ export default async function handler(req, res) {
     if (enabled && !s.guardian_consent)
       return res.status(403).json({ error: "보호자 동의가 확인되면 사용할 수 있어요. 선생님께 여쭤봐 주세요." });
 
-    const allowed = (s.allowed_tones?.length ? s.allowed_tones : Object.keys(TONES)).filter((t) => TONES[t]);
+    const allowed = (s.allowed_tones?.length ? s.allowed_tones : Object.keys(TONES)).filter(
+      (t) => TONES[t] && TONES[t].enabled
+    );
     res.json({
       demo: !enabled,
       name: s.display_name || null,
-      character: { name: IDENTITY.name },
-      tones: allowed.map((id) => ({ id, label: TONES[id].label })),
+      character: { name: IDENTITY.name, personality: DEFAULT_PERSONALITY },
+      personalities: Object.entries(PERSONALITIES).map(([id, p]) => ({ id, label: p.label })),
+      tones: allowed.map((id) => ({ id, label: TONES[id].label, hint: TONES[id].hint })),
       defaultTone: allowed.includes(DEFAULT_TONE) ? DEFAULT_TONE : allowed[0],
     });
   } catch (e) {
