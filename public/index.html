@@ -71,7 +71,7 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* ── 입장 화면 ── */
 #entry { justify-content: center; padding-left: 28px; padding-right: 28px; gap: 8px; }
-#entry .hero { width: min(64vw, 260px); align-self: center; margin-bottom: 8px; animation: breathe 4.5s ease-in-out infinite; }
+#entry .hero { width: min(64vw, 260px); aspect-ratio: 220 / 200; align-self: center; margin-bottom: 8px; animation: breathe 4.5s ease-in-out infinite; }
 #entry h1 { font-size: 30px; line-height: 1.25; margin: 0; letter-spacing: -0.01em; }
 #entry p { margin: 0 0 20px; color: var(--ink-2); }
 .field label { display: block; font-size: 14px; color: var(--ink-2); margin: 0 0 6px 4px; }
@@ -112,8 +112,9 @@ button, input, textarea { font: inherit; color: inherit; }
   background: var(--line); opacity: .55; filter: blur(2px);
   transition: opacity .28s;
 }
-.stage img { height: 86%; max-width: 80%; animation: breathe 4.5s ease-in-out infinite; position: relative; z-index: 1; }
-.stage img.swap { animation: squish .38s ease; }
+.stage .face { height: 88%; aspect-ratio: 220 / 200; max-width: 80%; animation: breathe 4.5s ease-in-out infinite; position: relative; z-index: 1; cursor: pointer; }
+.stage .face.swap { animation: squish .38s ease; }
+.face svg, .hero svg { width: 100%; height: 100%; display: block; }
 body.typing-mode .stage { height: 84px; min-height: 84px; }
 body.typing-mode .stage::after { opacity: 0; }
 @keyframes breathe { 0%,100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-4px) scale(1.015, .99); } }
@@ -220,6 +221,43 @@ body.typing-mode .stage::after { opacity: 0; }
 .msg.bot .say svg { width: 18px; height: 18px; fill: currentColor; }
 .msg.bot .say:active { background: var(--surface-2); }
 
+/* ── 꾸미기 화면 ── */
+#studio { position: fixed; inset: 0; z-index: 25; background: var(--bg); max-width: none; }
+#studio .inner { max-width: 640px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: 100%; }
+#studio .appbar { padding-left: 4px; }
+.studio-preview { flex: none; height: 26vh; min-height: 150px; max-height: 220px; display: grid; place-items: center; overflow: hidden; padding: 8px 0; }
+.studio-preview .face { height: 100%; aspect-ratio: 220 / 200; cursor: pointer; }
+.studio-preview .face.swap { animation: squish .38s ease; }
+.tabs { flex: none; display: flex; margin: 4px 16px 0; background: var(--surface-2); border-radius: 999px; padding: 4px; }
+.tabs button { flex: 1; height: 40px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; color: var(--ink-2); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+#studio .body { flex: 1; overflow-y: auto; padding: 4px 16px 28px; }
+#studio h3 { font-size: 15px; color: var(--ink-2); margin: 18px 4px 8px; font-weight: 400; }
+.part-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.part {
+  border: 2px solid transparent; background: var(--surface); border-radius: 18px; padding: 6px 4px 6px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px;
+}
+.part .mini { width: 64px; aspect-ratio: 220 / 200; }
+.part .mini svg { width: 100%; height: 100%; }
+.part[aria-pressed="true"] { border-color: var(--primary); background: var(--mine); color: var(--on-mine); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; }
+.swatch[aria-pressed="true"] { outline: 3px solid var(--primary); outline-offset: 2px; }
+.clip {
+  background: var(--surface); border-radius: 18px; padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 0 var(--line);
+}
+.clip .txt { flex: 1; min-width: 0; }
+.clip small { display: block; color: var(--ink-2); font-size: 13px; }
+.clip button {
+  height: 40px; min-width: 40px; border-radius: 12px; border: 1.5px solid var(--line); background: transparent;
+  cursor: pointer; padding: 0 10px; font-size: 14.5px;
+}
+.clip button.rec { border-color: var(--primary); color: var(--primary); }
+.clip button.rec.on { background: #E5484D; border-color: #E5484D; color: #fff; }
+.clip button:disabled { opacity: .35; }
+
 /* ── 기억 화면 ── */
 #memory { position: fixed; inset: 0; z-index: 25; background: var(--bg); max-width: none; }
 #memory .inner { max-width: 640px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: 100%; }
@@ -245,7 +283,7 @@ body.typing-mode .stage::after { opacity: 0; }
 
 <!-- 입장 -->
 <section id="entry" class="screen" hidden>
-  <img class="hero" src="/expressions/happy.svg" alt="">
+  <div class="hero" id="hero"></div>
   <h1>포근이와<br>이야기해요</h1>
   <p>선생님께 받은 코드를 넣어 주세요.</p>
   <form id="entryForm" class="field" novalidate>
@@ -267,7 +305,7 @@ body.typing-mode .stage::after { opacity: 0; }
       <svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4L10.6 6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
   </header>
-  <div class="stage"><img id="face" src="/expressions/neutral.svg" alt="포근이 표정: 기본"></div>
+  <div class="stage"><div class="face" id="face" role="img" aria-label="캐릭터 표정"></div></div>
   <main id="log" role="log" aria-live="polite"></main>
   <form class="composer" id="composer">
     <textarea id="input" rows="1" placeholder="하고 싶은 말을 써 봐" aria-label="메시지" maxlength="500"></textarea>
@@ -282,6 +320,7 @@ body.typing-mode .stage::after { opacity: 0; }
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
   <div class="handle"></div>
   <h2 id="sheetTitle">설정</h2>
+  <button class="btn" id="openStudio" style="margin:2px 0 6px">캐릭터 꾸미기 · 내 목소리</button>
   <h3>캐릭터 이름</h3>
   <div class="name-row">
     <input id="personaName" maxlength="8" autocomplete="off" aria-label="캐릭터 이름">
@@ -317,6 +356,37 @@ body.typing-mode .stage::after { opacity: 0; }
   <p class="fine">포근이는 학교에서 만든 AI예요. 나눈 이야기는 선생님이 볼 수 있어요.</p>
 </div>
 
+<!-- 꾸미기 -->
+<section id="studio" class="screen" hidden aria-labelledby="studioTitle">
+  <div class="inner">
+    <header class="appbar">
+      <button class="icon-btn" id="closeStudio" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>
+      </button>
+      <div class="who"><div class="name" id="studioTitle">꾸미기</div><div class="tone">캐릭터를 누르면 표정이 바뀌어요</div></div>
+    </header>
+    <div class="studio-preview"><div class="face" id="studioFace"></div></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="look">모습</button>
+      <button role="tab" aria-selected="false" data-tab="rec">내 목소리</button>
+    </div>
+    <div class="body" id="tabLook">
+      <h3>모양</h3><div class="part-grid" id="bodyGrid"></div>
+      <h3>색</h3><div class="swatches" id="colorGrid"></div>
+      <h3>소품</h3><div class="part-grid" id="accGrid"></div>
+    </div>
+    <div class="body" id="tabRec" hidden>
+      <p class="fine" style="margin:8px 4px 4px">짧은 말을 직접 녹음하면, 캐릭터가 그 순간에 네 목소리로 말해. 녹음은 <b>이 폰에만</b> 저장되고 어디에도 보내지 않아. 다른 사람 목소리는 녹음하지 말자.</p>
+      <h3>녹음 (한 번에 3초)</h3>
+      <div id="clipList"></div>
+      <h3>목소리 효과</h3>
+      <div class="chips" id="fxGrid"></div>
+      <label class="switch-row"><span>녹음한 목소리 쓰기</span><input type="checkbox" id="useClips"></label>
+      <p class="fine" id="noRec" hidden>이 기기에서는 녹음을 쓸 수 없어요.</p>
+    </div>
+  </div>
+</section>
+
 <!-- 기억 보기 -->
 <section id="memory" class="screen" hidden aria-labelledby="memTitle">
   <div class="inner">
@@ -339,6 +409,7 @@ body.typing-mode .stage::after { opacity: 0; }
 
 <div class="snackbar" id="snack" role="status"></div>
 
+<script src="/character.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const TONE_HINT = { teacher: "차분하고 다정하게", friend: "편한 반말로", parent: "따뜻하게 품어 주듯" };
@@ -361,6 +432,11 @@ const state = {
   persona: store.get("persona", { name: "포근이", personality: "warm" }),
   personalities: [],
   voice: store.get("voice", { preset: "basic", pitch: 1, rate: 1, auto: false, name: "" }),
+  look: Character.normalize(store.get("look", null)),
+  clips: store.get("clips", {}),
+  clipFx: store.get("clipFx", "orig"),
+  useClips: store.get("useClips", true),
+  face: "neutral",
 };
 const NAME_RE = /^[가-힣A-Za-z0-9 ]{1,8}$/;
 // 받침에 따라 조사 고르기: josa("콩이","이야","야") → "콩이야"
@@ -373,7 +449,7 @@ function charName() { return state.persona.name || "포근이"; }
 function renderName() {
   $("#charName").textContent = charName();
   document.querySelectorAll(".cname").forEach((el) => (el.textContent = charName()));
-  $("#face").alt = `${charName()} 표정`;
+  $("#face").setAttribute("aria-label", `${charName()} 표정`);
 }
 
 // ── 화면 전환
@@ -419,7 +495,7 @@ function greet(name) {
   const text = `${name ? name + ", " : ""}안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`;
   push({ role: "assistant", content: text, emotion: "happy" });
   setFace("happy");
-  if (state.voice.auto) speak(text);
+  react("greet", text);
 }
 
 $("#entryForm").addEventListener("submit", async (e) => {
@@ -475,14 +551,15 @@ function renderLog() {
 }
 
 // ── 표정
-function setFace(emotion, animate = true) {
-  const img = $("#face");
-  const next = `/expressions/${emotion}.svg`;
-  img.alt = `포근이 표정: ${EMO_LABEL[emotion] || "기본"}`;
-  if (img.getAttribute("src") === next) return;
-  img.src = next;
-  if (animate) { img.classList.remove("swap"); void img.offsetWidth; img.classList.add("swap"); }
+function setFace(emotion, animate = true, force = false) {
+  const el = $("#face");
+  if (!force && state.face === emotion && el.firstChild) return;
+  state.face = emotion;
+  el.innerHTML = Character.svg(state.look, emotion);
+  el.setAttribute("aria-label", `${charName()} 표정: ${EMO_LABEL[emotion] || "기본"}`);
+  if (animate) { el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
 }
+function renderHero() { $("#hero").innerHTML = Character.svg(state.look, "happy"); }
 
 // ── 보내기
 const input = $("#input");
@@ -508,11 +585,11 @@ $("#composer").addEventListener("submit", async (e) => {
   $("#log").appendChild(wait); $("#log").scrollTop = $("#log").scrollHeight;
 
   try {
-    const r = await api("/api/chat", { code: state.code, tone: state.tone, persona: state.persona, message: text, history });
+    const r = await api("/api/chat", { code: state.code, tone: state.tone, persona: { ...state.persona, body: state.look.body }, message: text, history });
     wait.remove();
     push({ role: "assistant", content: r.text, emotion: r.emotion, crisis: r.crisis });
     setFace(r.emotion);
-    if (state.voice.auto) speak(r.text);
+    react(r.emotion, r.text, r.crisis);
   } catch (err) {
     wait.remove();
     const el = document.createElement("div"); el.className = "msg err"; el.textContent = err.message;
@@ -562,9 +639,9 @@ $("#clearBtn").addEventListener("click", () => {
   state.history = []; store.del("history"); renderLog(); closeSheet(); snack("대화를 지웠어요.");
 });
 $("#logoutBtn").addEventListener("click", () => {
-  if (!confirm("나가면 이 폰의 대화도 지워져요. 나갈까요?")) return;
-  ["code", "tone", "history"].forEach(store.del);
-  Object.assign(state, { code: null, tone: null, history: [], tones: [] });
+  if (!confirm("나가면 이 폰의 대화와 녹음한 목소리도 지워져요. 나갈까요?")) return;
+  ["code", "tone", "history", "clips"].forEach(store.del); // 녹음한 목소리도 이 폰에서 지움
+  Object.assign(state, { code: null, tone: null, history: [], tones: [], clips: {} });
   closeSheet(); $("#code").value = ""; show("entry");
 });
 
@@ -658,6 +735,164 @@ $("#vVoice").addEventListener("change", (e) => { state.voice.name = e.target.val
 $("#vAuto").addEventListener("change", (e) => { state.voice.auto = e.target.checked; saveVoice(); });
 $("#vTest").addEventListener("click", () => speak(`안녕! 나는 ${josa(charName(), "이야", "야")}. 오늘 뭐 했어?`));
 
+// ── 꾸미기: 모습
+const STUDIO_EMOS = ["happy", "neutral", "surprised", "cheer", "thinking", "concern"];
+let studioEmo = 0;
+function renderStudioFace(animate) {
+  const el = $("#studioFace");
+  el.innerHTML = Character.svg(state.look, STUDIO_EMOS[studioEmo]);
+  if (animate) { el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+}
+function setLook(patch) {
+  state.look = Character.normalize({ ...state.look, ...patch });
+  store.set("look", state.look);
+  renderStudioFace(true); renderLookGrids(); setFace(state.face, false, true); renderHero();
+}
+function partButton(label, pressed, miniSvg, onClick) {
+  const b = document.createElement("button");
+  b.className = "part"; b.setAttribute("aria-pressed", String(pressed));
+  b.innerHTML = (miniSvg ? `<span class="mini">${miniSvg}</span>` : "") + `<span></span>`;
+  b.lastChild.textContent = label;
+  b.addEventListener("click", onClick);
+  return b;
+}
+function renderLookGrids() {
+  const L = state.look;
+  const bg = $("#bodyGrid"); bg.innerHTML = "";
+  Object.entries(Character.BODIES).forEach(([id, b]) =>
+    bg.appendChild(partButton(b.label, id === L.body, Character.svg({ ...L, body: id, acc: "none" }, "happy"), () => setLook({ body: id }))));
+  const cg = $("#colorGrid"); cg.innerHTML = "";
+  Object.entries(Character.COLORS).forEach(([id, c]) => {
+    const s = document.createElement("button");
+    s.className = "swatch"; s.style.background = c.fill; s.setAttribute("aria-label", c.label);
+    s.setAttribute("aria-pressed", String(id === L.color));
+    s.addEventListener("click", () => setLook({ color: id }));
+    cg.appendChild(s);
+  });
+  const ag = $("#accGrid"); ag.innerHTML = "";
+  Object.entries(Character.ACCS).forEach(([id, a]) =>
+    ag.appendChild(partButton(a.label, id === L.acc, Character.svg({ ...L, acc: id }, "neutral"), () => setLook({ acc: id }))));
+}
+$("#studioFace").addEventListener("click", () => { studioEmo = (studioEmo + 1) % STUDIO_EMOS.length; renderStudioFace(true); });
+document.querySelectorAll(".tabs button").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
+  $("#tabLook").hidden = t.dataset.tab !== "look"; $("#tabRec").hidden = t.dataset.tab !== "rec";
+}));
+function openStudio() {
+  const fromSheet = !$("#sheet").hidden;
+  if (fromSheet) closeSheet();
+  setTimeout(() => {
+    $("#studio").hidden = false; history.pushState({ studio: true }, "");
+    renderStudioFace(false); renderLookGrids(); renderClips();
+  }, fromSheet ? 280 : 0);
+}
+function closeStudio(fromPop = false) {
+  if ($("#studio").hidden) return;
+  stopRecording(); $("#studio").hidden = true;
+  if (!fromPop && history.state?.studio) history.back();
+}
+$("#openStudio").addEventListener("click", openStudio);
+$("#face").addEventListener("click", openStudio);
+$("#closeStudio").addEventListener("click", () => closeStudio());
+addEventListener("popstate", () => closeStudio(true));
+
+// ── 꾸미기: 내 목소리 (녹음은 이 폰에만 저장, 서버로 보내지 않음)
+const CLIP_SLOTS = {
+  greet: { label: "인사", hint: "앱을 열고 인사할 때 · 예: 안녕!" },
+  happy: { label: "기쁠 때", hint: "기쁜 표정일 때 · 예: 우와 좋다!" },
+  cheer: { label: "응원할 때", hint: "응원할 때 · 예: 힘내!" },
+  surprised: { label: "놀랄 때", hint: "놀란 표정일 때 · 예: 헐 진짜?" },
+};
+const CLIP_FX = {
+  orig:   { label: "그대로",   rate: 1 },
+  high:   { label: "높게",     rate: 1.3 },
+  higher: { label: "아주 높게", rate: 1.6 },
+  low:    { label: "낮게",     rate: 0.8 },
+};
+const CLIP_MAX_MS = 3000;
+const canRecord = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+let rec = null; // { slot, recorder, stream, timer }
+
+function playClip(data) {
+  return new Promise((resolve) => {
+    const a = new Audio(data);
+    a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
+    a.playbackRate = CLIP_FX[state.clipFx]?.rate || 1;
+    a.onended = a.onerror = () => resolve();
+    a.play().catch(() => resolve());
+  });
+}
+// 답이 오면: 그 감정에 녹음이 있으면 먼저 틀고, 자동 읽기가 켜져 있으면 이어서 읽는다
+async function react(emotion, text, crisis = false) {
+  const clip = !crisis && state.useClips && state.clips[emotion];
+  if (clip) await playClip(clip);
+  if (state.voice.auto && text) speak(text);
+}
+async function startRecording(slot) {
+  stopRecording();
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return snack("마이크를 쓸 수 없어요. 권한을 확인해 주세요."); }
+  const chunks = [];
+  const recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+    if (blob.size > 250000) { rec = null; renderClips(); return snack("녹음이 너무 커요. 다시 해 볼까요?"); }
+    const fr = new FileReader();
+    fr.onload = () => {
+      state.clips[slot] = fr.result;
+      store.set("clips", state.clips);
+      rec = null; renderClips(); playClip(fr.result);
+    };
+    fr.readAsDataURL(blob);
+  };
+  rec = { slot, recorder, stream, timer: setTimeout(stopRecording, CLIP_MAX_MS) };
+  recorder.start(); renderClips();
+}
+function stopRecording() {
+  if (!rec) return;
+  clearTimeout(rec.timer);
+  if (rec.recorder.state !== "inactive") rec.recorder.stop();
+  else { rec.stream.getTracks().forEach((t) => t.stop()); rec = null; }
+}
+function renderClips() {
+  if (!canRecord) { $("#clipList").innerHTML = ""; $("#noRec").hidden = false; }
+  const list = $("#clipList"); list.innerHTML = "";
+  Object.entries(CLIP_SLOTS).forEach(([slot, s]) => {
+    const has = !!state.clips[slot], recording = rec?.slot === slot;
+    const row = document.createElement("div"); row.className = "clip";
+    row.innerHTML = `<div class="txt"><div></div><small></small></div>`;
+    row.querySelector(".txt div").textContent = s.label + (has ? " ✓" : "");
+    row.querySelector("small").textContent = s.hint;
+    const r = document.createElement("button");
+    r.className = "rec" + (recording ? " on" : "");
+    r.textContent = recording ? "멈추기" : has ? "다시" : "녹음";
+    r.disabled = !canRecord || (rec && !recording);
+    r.addEventListener("click", () => (recording ? stopRecording() : startRecording(slot)));
+    const p = document.createElement("button"); p.textContent = "▶"; p.setAttribute("aria-label", s.label + " 듣기");
+    p.disabled = !has; p.addEventListener("click", () => playClip(state.clips[slot]));
+    const d = document.createElement("button"); d.textContent = "지우기";
+    d.disabled = !has;
+    d.addEventListener("click", () => { delete state.clips[slot]; store.set("clips", state.clips); renderClips(); });
+    row.append(r, p, d); list.appendChild(row);
+  });
+  const fx = $("#fxGrid"); fx.innerHTML = "";
+  Object.entries(CLIP_FX).forEach(([id, f]) => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = f.label;
+    b.setAttribute("aria-pressed", String(id === state.clipFx));
+    b.addEventListener("click", () => {
+      state.clipFx = id; store.set("clipFx", id); renderClips();
+      const sample = state.clips.greet || Object.values(state.clips)[0];
+      if (sample) playClip(sample);
+    });
+    fx.appendChild(b);
+  });
+  $("#useClips").checked = state.useClips;
+}
+$("#useClips").addEventListener("change", (e) => { state.useClips = e.target.checked; store.set("useClips", state.useClips); });
+
 // ── 기억 보기
 const TRASH = '<svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>';
 function memDate(iso) {
@@ -716,6 +951,7 @@ $("#clearMemory").addEventListener("click", async () => {
 // ── 시작
 (async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  renderHero(); setFace("neutral", false, true);
   if (state.code) {
     try { await enter(state.code); return; } catch (err) { snack(err.message); }
   }
