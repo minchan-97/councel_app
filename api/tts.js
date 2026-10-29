@@ -92,7 +92,30 @@ async function diagnose(res) {
   res.status(200).json(out);
 }
 
+// 브라우저에서 바로 들어보는 시험: /api/tts?test=1&code=입장코드
+async function testPlay(req, res) {
+  try {
+    const { db, cfg } = await load();
+    const s = await db.getStudent(String(req.query?.code || "").trim());
+    if (!s || s.active === false) return res.status(403).json({ error: "code에 입장 코드를 넣어 주세요." });
+    const tried = [];
+    for (const m of modelChain(cfg)) {
+      try {
+        const audio = await synth(m, { voice: "nova", input: "안녕! 목소리 시험이야. 잘 들리니?", instructions: "Bright and friendly. Speak natural Korean.", style: "cheerful" });
+        res.setHeader("content-type", "audio/mpeg");
+        res.setHeader("x-tts-model", m);
+        res.statusCode = 200;
+        return res.end(audio);
+      } catch (e) { tried.push(e.message); }
+    }
+    res.status(500).json({ error: "모든 음성 모델 실패", tried });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 export default async function handler(req, res) {
+  if (req.method === "GET" && req.query?.test) return testPlay(req, res);
   if (req.method === "GET") return diagnose(res);
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
