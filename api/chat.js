@@ -6,7 +6,7 @@ import {
   getEpisodes, logMessages, addAlert, addAudit,
 } from "../lib/db.js";
 import { checkSafety } from "../lib/safety.js";
-import { buildSystem, auditReply, gateMemories, SAFE_FALLBACK } from "../lib/companion.js";
+import { buildSystem, auditReply, gateMemories, normalizePersona, SAFE_FALLBACK } from "../lib/companion.js";
 import { maybeSummarize } from "../lib/episodes.js";
 import { complete, parseJSON } from "../lib/llm.js";
 import { IDENTITY, TONES, CRISIS_RESPONSES, EMOTIONS, CRISIS_EMOTION, EPISODE } from "../lib/config.js";
@@ -24,6 +24,7 @@ const safeSummarize = (sid, mode) =>
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   const { code, tone, message, history } = req.body || {};
+  const persona = normalizePersona(req.body?.persona);
   const text = String(message || "").trim().slice(0, MAX_LEN);
   if (!text) return res.status(400).json({ error: "메시지가 비어 있어요." });
 
@@ -38,7 +39,9 @@ export default async function handler(req, res) {
     if (!student || student.active === false || (enabled && !student.guardian_consent))
       return res.status(403).json({ error: "입장 코드를 다시 확인해 주세요." });
     const sid = student.id;
-    const allowed = student.allowed_tones?.length ? student.allowed_tones : Object.keys(TONES);
+    const allowed = (student.allowed_tones?.length ? student.allowed_tones : Object.keys(TONES)).filter(
+      (t) => TONES[t]?.enabled
+    );
     const useTone = allowed.includes(tone) && TONES[tone] ? tone : allowed[0];
 
     // 0) 오랜만에 왔으면 지난 대화를 먼저 요약 → 이번 대화에서 이어 갈 수 있게
@@ -61,23 +64,23 @@ export default async function handler(req, res) {
 
     // 2) 프롬프트 조립: 사실 기억 + 지난 이야기
     const [memories, episodes] = await Promise.all([getMemories(sid), getEpisodes(sid, EPISODE.inPrompt)]);
-    const system = buildSystem({ tone: useTone, studentName: student.display_name, memories, episodes, concern });
+    const system = buildSystem({ tone: useTone, persona, studentName: student.display_name, memories, episodes, concern });
     const messages = [...recent, { role: "user", content: text }];
 
     // 3) 생성 + 정체성 감사 (위반 시 1회 재생성, 그래도 위반이면 안전 문구)
     let out = parseJSON(await complete({ system, messages }));
-    let violations = out?.text ? auditReply(out.text) : ["parse_failed"];
+    let violations = out?.text ? auditReply(out.text, persona.name) : ["parse_failed"];
     if (violations.length) {
       console.warn("audit:", violations, out?.text ?? "(no text)");
       await addAudit(sid, { stage: "first", violations, output: out?.text || null }).catch(() => {});
       const retrySystem =
         system + `\n\n[교정] 직전 답이 규칙을 어겼다(${violations.join(", ")}). 정체성과 규칙을 지켜 다시 답한다.`;
       out = parseJSON(await complete({ system: retrySystem, messages, temperature: 0.4 }));
-      violations = out?.text ? auditReply(out.text) : ["parse_failed"];
+      violations = out?.text ? auditReply(out.text, persona.name) : ["parse_failed"];
       if (violations.length) {
         console.warn("audit retry:", violations, out?.text ?? "(no text)");
         await addAudit(sid, { stage: "retry", violations, output: out?.text || null }).catch(() => {});
-        out = { text: SAFE_FALLBACK(IDENTITY.name), emotion: "thinking", memory: [] };
+        out = { text: SAFE_FALLBACK(persona.name), emotion: "thinking", memory: [] };
       }
     }
     const reply = out.text.trim();
