@@ -6,7 +6,7 @@ import {
   getEpisodes, logMessages, addAlert, addAudit,
 } from "../lib/db.js";
 import { checkSafety } from "../lib/safety.js";
-import { buildSystem, auditReply, gateMemories, normalizePersona, SAFE_FALLBACK } from "../lib/companion.js";
+import { buildSystem, auditReply, gateMemories, normalizePersona, tonesFor, SAFE_FALLBACK } from "../lib/companion.js";
 import { maybeSummarize } from "../lib/episodes.js";
 import { complete, parseJSON } from "../lib/llm.js";
 import { IDENTITY, TONES, CRISIS_RESPONSES, EMOTIONS, CRISIS_EMOTION, EPISODE } from "../lib/config.js";
@@ -39,9 +39,7 @@ export default async function handler(req, res) {
     if (!student || student.active === false || (enabled && !student.guardian_consent))
       return res.status(403).json({ error: "입장 코드를 다시 확인해 주세요." });
     const sid = student.id;
-    const allowed = (student.allowed_tones?.length ? student.allowed_tones : Object.keys(TONES)).filter(
-      (t) => TONES[t]?.enabled
-    );
+    const allowed = tonesFor(student);
     const useTone = allowed.includes(tone) && TONES[tone] ? tone : allowed[0];
 
     // 0) 오랜만에 왔으면 지난 대화를 먼저 요약 → 이번 대화에서 이어 갈 수 있게
