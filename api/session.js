@@ -1,5 +1,6 @@
 // 학생 코드로 입장. 교사가 Supabase students 테이블에 미리 등록한 코드만 허용.
 import { getStudent, enabled } from "../lib/db.js";
+import { tonesFor } from "../lib/companion.js";
 import { IDENTITY, TONES, DEFAULT_TONE, PERSONALITIES, DEFAULT_PERSONALITY, TTS, TTS_VOICES, TTS_STYLES } from "../lib/config.js";
 
 export default async function handler(req, res) {
@@ -15,9 +16,7 @@ export default async function handler(req, res) {
     if (enabled && !s.guardian_consent)
       return res.status(403).json({ error: "보호자 동의가 확인되면 사용할 수 있어요. 선생님께 여쭤봐 주세요." });
 
-    const allowed = (s.allowed_tones?.length ? s.allowed_tones : Object.keys(TONES)).filter(
-      (t) => TONES[t] && TONES[t].enabled
-    );
+    const allowed = tonesFor(s);
     res.json({
       demo: !enabled,
       name: s.display_name || null,
