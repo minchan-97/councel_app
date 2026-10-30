@@ -6,7 +6,7 @@ create table if not exists students (
   id uuid primary key default gen_random_uuid(),
   code text unique not null,              -- 교사가 나눠 주는 입장 코드 (예: 4-2-07-x9k)
   display_name text,                      -- 앱이 부를 이름(별명 권장)
-  allowed_tones text[],                   -- 예: '{teacher,friend}'. 비우면 전체 허용
+  hidden_tones text[] not null default '{}', -- 이 학생에게 숨길 말투. 예: '{parent}'
   active boolean not null default true,
   guardian_consent boolean not null default false,
   created_at timestamptz not null default now()
@@ -20,6 +20,7 @@ create table if not exists messages (
   tone text,
   emotion text,
   flagged boolean not null default false,
+  safety text not null default 'none',
   created_at timestamptz not null default now()
 );
 
@@ -28,6 +29,7 @@ create table if not exists memories (
   student_id uuid references students(id) on delete cascade,
   category text not null,
   fact text not null,
+  last_seen timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
@@ -52,6 +54,24 @@ create table if not exists audit_log (
   created_at timestamptz not null default now()
 );
 
+create table if not exists episodes (
+  id bigserial primary key,
+  student_id uuid references students(id) on delete cascade,
+  summary text not null default '',
+  until_at timestamptz not null,
+  skipped boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists episodes_student_idx on episodes(student_id, until_at desc);
+create table if not exists tts_log (
+  id bigserial primary key,
+  student_id uuid references students(id) on delete cascade,
+  chars int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists tts_log_student_idx on tts_log(student_id, created_at desc);
+
 create index if not exists messages_student_idx on messages(student_id, created_at desc);
 create index if not exists memories_student_idx on memories(student_id, created_at desc);
 create index if not exists alerts_open_idx on alerts(reviewed, created_at desc);
@@ -61,10 +81,12 @@ alter table messages  enable row level security;
 alter table memories  enable row level security;
 alter table alerts    enable row level security;
 alter table audit_log enable row level security;
+alter table episodes  enable row level security;
+alter table tts_log   enable row level security;
 
 -- guardian_consent가 false인 학생은 서버에서 입장을 막는다(api/session.js, api/chat.js).
 
 -- 예시 학생 (테스트용)
-insert into students (code, display_name, allowed_tones, guardian_consent)
-values ('demo-001', '민준', '{teacher,friend,parent}', true)
+insert into students (code, display_name, guardian_consent)
+values ('demo-001', '민준', true)
 on conflict (code) do nothing;
