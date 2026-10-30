@@ -103,10 +103,24 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* 캐릭터 무대: 이 앱에서 유일하게 큰 요소 */
 .stage {
-  flex: none; height: 30vh; max-height: 240px; min-height: 140px;
-  display: grid; place-items: center; position: relative;
-  transition: height .28s ease, min-height .28s ease;
+  flex: none; height: clamp(110px, 24vh, 220px);
+  display: grid; place-items: center; position: relative; overflow: hidden;
+  transition: height .25s ease, opacity .2s ease;
 }
+/* 좁아지면 무대를 접고, 캐릭터는 상단 바의 작은 얼굴로 */
+body.compact .stage { height: 0; opacity: 0; }
+.mini-face {
+  width: 44px; height: 40px; flex: none; border: 0; background: transparent; padding: 0; cursor: pointer;
+  display: none; border-radius: 12px;
+}
+.mini-face svg { width: 100%; height: 100%; display: block; }
+body.compact .mini-face { display: block; }
+.stage-toggle {
+  position: absolute; right: 10px; top: 4px; z-index: 2; width: 40px; height: 40px; border-radius: 20px;
+  border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; color: var(--ink-2);
+}
+.stage-toggle svg { width: 22px; height: 22px; fill: currentColor; }
+.stage-toggle:active { background: var(--surface-2); }
 .stage::after { /* 바닥 그림자 */
   content: ""; position: absolute; bottom: 10px; width: 120px; height: 12px; border-radius: 50%;
   background: var(--line); opacity: .55; filter: blur(2px);
@@ -115,8 +129,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .stage .face { height: 88%; aspect-ratio: 220 / 200; max-width: 80%; animation: breathe 4.5s ease-in-out infinite; position: relative; z-index: 1; cursor: pointer; }
 .stage .face.swap { animation: squish .38s ease; }
 .face svg, .hero svg { width: 100%; height: 100%; display: block; }
-body.typing-mode .stage { height: 84px; min-height: 84px; }
-body.typing-mode .stage::after { opacity: 0; }
+
 @keyframes breathe { 0%,100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-4px) scale(1.015, .99); } }
 @keyframes squish { 0% { transform: scale(1); } 40% { transform: scale(1.08, .9); } 100% { transform: scale(1); } }
 
@@ -297,6 +310,7 @@ body.typing-mode .stage::after { opacity: 0; }
 <!-- 채팅 -->
 <section id="chat" class="screen" hidden>
   <header class="appbar">
+    <button class="mini-face" id="miniFace" aria-label="캐릭터 크게 보기"></button>
     <div class="who">
       <div class="name" id="charName">포근이</div>
       <div class="tone" id="toneLabel"></div>
@@ -305,7 +319,12 @@ body.typing-mode .stage::after { opacity: 0; }
       <svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4L10.6 6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
   </header>
-  <div class="stage"><div class="face" id="face" role="img" aria-label="캐릭터 표정"></div></div>
+  <div class="stage">
+    <div class="face" id="face" role="img" aria-label="캐릭터 표정"></div>
+    <button class="stage-toggle" id="stageToggle" aria-label="캐릭터 작게 보기">
+      <svg viewBox="0 0 24 24"><path d="M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z"/></svg>
+    </button>
+  </div>
   <main id="log" role="log" aria-live="polite"></main>
   <form class="composer" id="composer">
     <textarea id="input" rows="1" placeholder="하고 싶은 말을 써 봐" aria-label="메시지" maxlength="500"></textarea>
@@ -572,6 +591,7 @@ function setFace(emotion, animate = true, force = false) {
   if (!force && state.face === emotion && el.firstChild) return;
   state.face = emotion;
   el.innerHTML = Character.svg(state.look, emotion);
+  $("#miniFace").innerHTML = Character.svg(state.look, emotion);
   el.setAttribute("aria-label", `${charName()} 표정: ${EMO_LABEL[emotion] || "기본"}`);
   if (animate) { el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
 }
@@ -583,8 +603,39 @@ input.addEventListener("input", () => {
   input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px";
   $("#sendBtn").disabled = !input.value.trim() || state.busy;
 });
-input.addEventListener("focus", () => document.body.classList.add("typing-mode"));
-input.addEventListener("blur", () => setTimeout(() => document.body.classList.remove("typing-mode"), 120));
+// ── 캐릭터 무대 접기
+// 키보드가 올라오거나, 입력 중이거나, 화면이 낮거나, 사용자가 접어 두면 → 상단 바의 작은 얼굴로
+const layout = { typing: false, keyboard: false, userCompact: store.get("stageCompact", null) };
+function atBottom() { const l = $("#log"); return l.scrollHeight - l.scrollTop - l.clientHeight < 40; }
+function applyCompact() {
+  const shortScreen = innerHeight < 620;
+  const userPref = layout.userCompact === null ? shortScreen : layout.userCompact;
+  const compact = layout.typing || layout.keyboard || userPref;
+  if (document.body.classList.contains("compact") === compact) return;
+  const stick = atBottom();
+  document.body.classList.toggle("compact", compact);
+  // 무대가 접히거나 펼쳐지는 동안 마지막 말풍선이 가려지지 않게 바닥에 붙여 둔다
+  if (stick) { const l = $("#log"); const t0 = performance.now();
+    (function keep() { l.scrollTop = l.scrollHeight; if (performance.now() - t0 < 320) requestAnimationFrame(keep); })(); }
+}
+input.addEventListener("focus", () => { layout.typing = true; applyCompact(); });
+input.addEventListener("blur", () => setTimeout(() => { layout.typing = false; applyCompact(); }, 150));
+// 키보드 감지: 지금까지 본 가장 큰 화면 높이보다 많이 줄면 키보드가 올라온 것으로 본다
+let tallest = innerHeight;
+function viewportChanged() {
+  const h = window.visualViewport ? visualViewport.height : innerHeight;
+  tallest = Math.max(tallest, h);
+  layout.keyboard = h < tallest * 0.75;
+  applyCompact();
+}
+window.visualViewport?.addEventListener("resize", viewportChanged);
+addEventListener("resize", viewportChanged);
+addEventListener("orientationchange", () => { tallest = 0; setTimeout(viewportChanged, 300); });
+$("#stageToggle").addEventListener("click", () => { layout.userCompact = true; store.set("stageCompact", true); applyCompact(); });
+$("#miniFace").addEventListener("click", () => {
+  layout.userCompact = false; store.set("stageCompact", false);
+  if (layout.typing) input.blur(); else applyCompact();
+});
 
 $("#composer").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1032,7 +1083,7 @@ $("#clearMemory").addEventListener("click", async () => {
 // ── 시작
 (async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-  renderHero(); setFace("neutral", false, true);
+  renderHero(); setFace("neutral", false, true); applyCompact();
   if (state.code) {
     try { await enter(state.code); return; } catch (err) { snack(err.message); }
   }
@@ -1041,4 +1092,3 @@ $("#clearMemory").addEventListener("click", async () => {
 </script>
 </body>
 </html>
-
